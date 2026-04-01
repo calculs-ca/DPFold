@@ -1,0 +1,3 @@
+[submodule "WebGasket"]
+	path = WebGasket
+	url = git@github.com:calculs-ca/WebGasket.git
