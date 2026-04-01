@@ -1,0 +1,17 @@
+{
+  "scripts": {
+    "build": "node build.mjs",
+    "buildWatch": "node buildWatch.mjs"
+  },
+  "devDependencies": {
+    "esbuild": "file:../WebGasket/node_modules/esbuild",
+    "esbuild-plugin-manifest": "^1.0.5",
+    "esbuild-plugin-tailwindcss": "^1.2.3",
+    "tailwindcss": "file:../WebGasket/node_modules/tailwindcss"
+  },
+  "dependencies": {
+    "react": "file:../WebGasket/node_modules/react",
+    "react-dom": "file:../WebGasket/node_modules/react-dom",
+    "react-router-dom": "file:../WebGasket/node_modules/react-router-dom"
+  }
+}
