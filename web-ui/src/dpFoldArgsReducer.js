@@ -67,10 +67,23 @@ export const dpFoldArgsReducer = (state, action) => {
                 fileManagerVisible: true
             }
         }
+        case "popGlobusFileManager": {
+            return {
+                ...state,
+                globusFileManagerVisible: true
+            }
+        }
         case "closeFileManager": {
             return {
                 ...state,
                 fileManagerVisible: false,
+                c: state.c + 1
+            }
+        }
+        case "closeGlobusFileManager": {
+            return {
+                ...state,
+                globusFileManagerVisible: false,
                 c: state.c + 1
             }
         }

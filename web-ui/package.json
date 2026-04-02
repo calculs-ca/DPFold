@@ -5,13 +5,11 @@
   },
   "devDependencies": {
     "esbuild": "file:../WebGasket/node_modules/esbuild",
-    "esbuild-plugin-manifest": "^1.0.5",
-    "esbuild-plugin-tailwindcss": "^1.2.3",
-    "tailwindcss": "file:../WebGasket/node_modules/tailwindcss"
-  },
-  "dependencies": {
+    "esbuild-plugin-manifest": "file:../WebGasket/node_modules/esbuild-plugin-manifest",
+    "esbuild-plugin-tailwindcss": "file:../WebGasket/node_modules/esbuild-plugin-tailwindcss",
     "react": "file:../WebGasket/node_modules/react",
     "react-dom": "file:../WebGasket/node_modules/react-dom",
-    "react-router-dom": "file:../WebGasket/node_modules/react-router-dom"
+    "react-router-dom": "file:../WebGasket/node_modules/react-router-dom",
+    "tailwindcss": "file:../WebGasket/node_modules/tailwindcss"
   }
 }

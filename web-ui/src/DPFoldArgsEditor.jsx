@@ -7,6 +7,7 @@ import DocLink from "@web-gasket/components/DocLink.jsx";
 import ModalWindow from "@web-gasket/widgets/ModalWindow.jsx";
 import PipelineInstanceStartButton from "@web-gasket/components/PipelineInstanceStartButton.jsx"
 import PipelineInstancePreRunButton from "@web-gasket/components/PipelineInstancePreRunButton.jsx"
+import GlobusFileManager from "@web-gasket/components/globus/GlobusFileManager.jsx";
 import  {dpFoldArgsReducer} from "./dpFoldArgsReducer.js"
 
 
@@ -219,6 +220,31 @@ const DPFoldArgsEditor = ({pipelineInstance, pipelineArgsDispatcher}) => {
     const popFileManager = () => dpFoldArgsDispatcher({name: "popFileManager"})
 
 
+    const globusFileManagerModal = () => {
+        if(!dpFoldArgsView.globusFileManagerVisible) {
+            return
+        }
+
+        const closeGlobusFileManager = () => dpFoldArgsDispatcher({name: "closeGlobusFileManager"})
+
+        return <ModalWindow
+            title={"Manage Pipeline Files"}
+            largeGrid={true}
+            onClose={closeGlobusFileManager}
+            footer={<>
+                <DefaultButton caption={"Close"} onClick={closeGlobusFileManager}/>
+            </>}
+        >
+            <GlobusFileManager
+                pipelineInstanceDir={pipelineInstance.pid}
+                pipelineInstanceUploadDirectory={`${pipelineInstance.pid}/data`}
+            />
+        </ModalWindow>
+    }
+
+    const popGlobusFileManager = () => dpFoldArgsDispatcher({name: "popGlobusFileManager"})
+
+
     const formatDocModal = () => {
         if(! dpFoldArgsView.formatDocModal) {
             return
@@ -237,13 +263,15 @@ const DPFoldArgsEditor = ({pipelineInstance, pipelineArgsDispatcher}) => {
         </ModalWindow>
     }
 
+    const allowClusterSelection = false
 
     return <div className="grid gap-6 mb-6 md:grid-cols-1">
             <div>
                 <DocLink pipelineType={'DPFold'} markdownFile={'doc.samplesheet.md'}/>
             </div>
             {fileManagerModal()}
-            <div>
+            {globusFileManagerModal()}
+            {allowClusterSelection &&<div>
                 <ClusterSelect
                     value={dpFoldArgsView.args.cc_cluster}
                     clusters={clusters}
@@ -253,7 +281,7 @@ const DPFoldArgsEditor = ({pipelineInstance, pipelineArgsDispatcher}) => {
                         value: cluster
                     })}
                 />
-            </div>
+            </div>}
             <div>
                 <AllocationSelect
                     value={dpFoldArgsView.args.cc_allocation || ""}
@@ -285,6 +313,7 @@ const DPFoldArgsEditor = ({pipelineInstance, pipelineArgsDispatcher}) => {
                 </div>
                 <div className={"basis-1/3 pt-7 ml-6"}>
                     <DefaultButton onClick={popFileManager} caption={"Manage pipeline Files"}/>
+                    <DefaultButton onClick={popGlobusFileManager} caption={"Globus File Manager"}/>
                 </div>
             </div>
             <div className={"flex flex-row"}>

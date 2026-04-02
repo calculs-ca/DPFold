@@ -6,10 +6,12 @@ import uvicorn
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.requests import Request
+from starlette.websockets import WebSocketDisconnect, WebSocket
 
 from dpfold.multimer import parse_multimer_list_from_samplesheet
 from dpfold.pipeline_conf import gen_conf
 from dry_pipe.service import PipelineRunner
+from web_gasket.globus_auth import GlobusAuthenticator
 
 from web_gasket.routes import init_page_and_upload_routes, create_sub_api
 from web_gasket.auth import SqliteAuthenticator
@@ -17,6 +19,8 @@ from web_gasket.auth import SqliteAuthenticator
 
 import logging
 import logging.config
+
+from web_gasket import slurm_commands
 
 
 def parse_permissions(user_email):
@@ -80,6 +84,17 @@ def init_app():
         ]
     )
 
+    @app.websocket("/ws")
+    async def websocket_endpoint(websocket: WebSocket):
+        await websocket.accept()
+        try:
+            while True:
+                data = await websocket.receive_text()
+                await websocket.send_text(f"Message text was: {data}")
+        except WebSocketDisconnect:
+            print("WebSocket disconnected")
+            pass
+
     WEB_GASKET_TEMP_FILE_UPLOAD_DIR = os.environ.get("WEB_GASKET_TEMP_FILE_UPLOAD_DIR")
 
     if WEB_GASKET_TEMP_FILE_UPLOAD_DIR is None:
@@ -94,6 +109,8 @@ def init_app():
     @api.get("/cc_allocations")
     async def cc_allocations(request: Request):
 
+        return slurm_commands.list_accounts()
+        """
         sess = request.state.session
 
         user_email = sess.get("user_email")
@@ -109,6 +126,7 @@ def init_app():
             cc_allocs = json.load(f)
 
         return cc_allocs.get(user_email)
+        """
 
 
     @api.get("/dpFoldFilesStatus/{pid:path}")
@@ -137,25 +155,39 @@ def init_app():
         }
 
 
-    user_auth_db = os.environ.get("USER_AUTH_DB")
+    #user_auth_db = os.environ.get("USER_AUTH_DB")
 
-    if user_auth_db is None:
-        raise Exception(f"missing env var USER_AUTH_DB")
+    #if user_auth_db is None:
+    #    raise Exception(f"missing env var USER_AUTH_DB")
 
     session_key = os.environ.get("WEB_SESSION_KEY")
 
     if session_key is None:
         raise Exception(f"missing env var WEB_SESSION_KEY")
 
-    authenticator = SqliteAuthenticator(
-        user_auth_db,
-        session_key,
-        60*30
-    )
+    #authenticator = SqliteAuthenticator(
+    #    user_auth_db,
+    #    session_key,
+    #    60*30
+    #)
 
-    authenticator.init_routes(api, app)
+    #authenticator.init_routes(api, app)
+    #init_page_and_upload_routes(app, authenticator)
 
-    init_page_and_upload_routes(app, authenticator)
+    globus_authenticator = GlobusAuthenticator(api, uses_local_ssh_globus_for_file_transfers_only=True)
+
+    def page_func():
+        return f"""
+        <script>
+            var ____pipeline_instances_collection_id='{globus_authenticator.pipeline_instances_collection_id}'
+            var ____pipeline_instances_collection_base_dir='{globus_authenticator.globus_pipeline_instances_dir}'
+            var ____webgastket_globus_client_id='{globus_authenticator.globus_client_id}'
+        </script>        
+        """
+
+    globus_authenticator.init_routes(api, app, page_func())
+
+    init_page_and_upload_routes(app, globus_authenticator, page_func())
 
     app.mount("/api", api)
 
