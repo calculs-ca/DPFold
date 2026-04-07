@@ -9,10 +9,8 @@ import os
 import re
 import lzma
 import gzip
-import numpy as np
 import math
 from statistics import mean
-import pandas as pd
 import sys
 import shutil
 from collections import defaultdict
@@ -54,6 +52,9 @@ def join_csv_files(files: list, output_name: str, sort_col: str = None, sort_asc
         :param sort_ascending (bool, optional): The sort direction to use when sorting the final output CSV.
         :param headers (list, optional): A list of column names for the output file. If not provided, the column names from the first input file are used.
     """
+
+    import pandas as pd
+
     if (len(files) < 1):
         return
 
@@ -185,6 +186,7 @@ def dist2(v1, v2) -> float:
 
 
 def atom_from_pdb_line(atom_line: str) -> dict:
+    import numpy as np
     """
         Parses a single line string in the standard PDB format and returns a list a dict that represents an atom with 3d coordinates and a type(element)
 
@@ -269,6 +271,8 @@ def parse_atm_record(line: str) -> dict:
 
 
 def get_pdockq_elofsson(pdb_filepath: str, chains: list = None) -> float:
+    import numpy as np
+
     """
         Returns the pdockQ score as defined by https://www.nature.com/articles/s41467-022-28865-w
 
@@ -336,6 +340,8 @@ def get_contacts_from_structure(pdb_filename: str, max_distance: float = 8, min_
         :param max_distance:the maximum allowed distance in Angstroms that the 2 residues must have in order to be considered in contact
         :param min_plddt:the minimum pLDDT(0-100) 2 residues must have to be considered in contact
     """
+
+    import numpy as np
 
     #holds a more relaxed distance criteria for fast preliminary filtering  
     d2_n_cutoff = (max_distance + 20) ** 2
@@ -667,6 +673,8 @@ def analyze_multimer(
         :param valid_aas (str): A string representing the set of amino acids have both residues in a pair have to belong to in order for that pair to be a contact.
         :param ignore_pae (bool): A boolean option allows to analyze complexes purely based on PDB files and ignores any PAE analysis.
     """
+
+    import pandas as pd
 
     summary_stats = {}
     all_interface_stats = []
