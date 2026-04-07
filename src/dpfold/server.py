@@ -165,7 +165,10 @@ def init_app():
     globus_authenticator.init_routes(api, app, page_func())
 
     global runner
-    runner = DryPipeWebSocketRunner(home_directory="/home/maxl/dev/DPFold/example-tunnel-home-dir")
+
+    h = os.environ.get("WEB_GASKET_HOME")
+
+    runner = DryPipeWebSocketRunner(home_directory=h)
 
     runner.create_dry_pipe_runner_home()
 
