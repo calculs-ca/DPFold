@@ -1,4 +1,3 @@
-import json
 import os
 from pathlib import Path
 
@@ -6,15 +5,14 @@ import uvicorn
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.requests import Request
-from starlette.websockets import WebSocketDisconnect, WebSocket
 
 from dpfold.multimer import parse_multimer_list_from_samplesheet
 from dpfold.pipeline_conf import gen_conf
 from dry_pipe.service import PipelineRunner
+from web_gasket.dry_pipe_web_socket_runner import DryPipeWebSocketRunner
 from web_gasket.globus_auth import GlobusAuthenticator
 
 from web_gasket.routes import init_page_and_upload_routes, create_sub_api
-from web_gasket.auth import SqliteAuthenticator
 
 
 import logging
@@ -64,6 +62,29 @@ def parse_permissions(user_email):
 
 
 def init_app():
+    logging_config = {
+        'version': 1,
+        'disable_existing_loggers': False, # Keep existing loggers active
+        'root': {
+            'level': 'INFO',
+            'handlers': ['console'],
+        },
+        "formatters": {
+            "simple": {
+                "format": "%(levelname)s: - %(name)s - %(message)s"
+            }
+        },
+        'handlers': {
+            'console': {
+                'class': 'logging.StreamHandler',
+                'level': 'INFO',
+                "formatter": "simple"
+            },
+        },
+    }
+
+    logging.config.dictConfig(logging_config)
+
 
     app = FastAPI()
 
@@ -84,17 +105,6 @@ def init_app():
         ]
     )
 
-    @app.websocket("/ws")
-    async def websocket_endpoint(websocket: WebSocket):
-        await websocket.accept()
-        try:
-            while True:
-                data = await websocket.receive_text()
-                await websocket.send_text(f"Message text was: {data}")
-        except WebSocketDisconnect:
-            print("WebSocket disconnected")
-            pass
-
     WEB_GASKET_TEMP_FILE_UPLOAD_DIR = os.environ.get("WEB_GASKET_TEMP_FILE_UPLOAD_DIR")
 
     if WEB_GASKET_TEMP_FILE_UPLOAD_DIR is None:
@@ -108,25 +118,7 @@ def init_app():
 
     @api.get("/cc_allocations")
     async def cc_allocations(request: Request):
-
         return slurm_commands.list_accounts()
-        """
-        sess = request.state.session
-
-        user_email = sess.get("user_email")
-
-        af = os.environ.get("CC_ALLOCATIONS_FILE")
-        if af is None:
-            raise Exception(f"missing env var CC_ALLOCATIONS_FILE")
-
-        if not Path(af).exists():
-            raise Exception(f"CC_ALLOCATIONS_FILE does not exist")
-
-        with open(af, "r") as f:
-            cc_allocs = json.load(f)
-
-        return cc_allocs.get(user_email)
-        """
 
 
     @api.get("/dpFoldFilesStatus/{pid:path}")
@@ -154,25 +146,10 @@ def init_app():
             "exists": False
         }
 
-
-    #user_auth_db = os.environ.get("USER_AUTH_DB")
-
-    #if user_auth_db is None:
-    #    raise Exception(f"missing env var USER_AUTH_DB")
-
     session_key = os.environ.get("WEB_SESSION_KEY")
 
     if session_key is None:
         raise Exception(f"missing env var WEB_SESSION_KEY")
-
-    #authenticator = SqliteAuthenticator(
-    #    user_auth_db,
-    #    session_key,
-    #    60*30
-    #)
-
-    #authenticator.init_routes(api, app)
-    #init_page_and_upload_routes(app, authenticator)
 
     globus_authenticator = GlobusAuthenticator(api, uses_local_ssh_globus_for_file_transfers_only=True)
 
@@ -187,7 +164,12 @@ def init_app():
 
     globus_authenticator.init_routes(api, app, page_func())
 
-    init_page_and_upload_routes(app, globus_authenticator, page_func())
+    global runner
+    runner = DryPipeWebSocketRunner(home_directory="/home/maxl/dev/DPFold/example-tunnel-home-dir")
+
+    runner.create_dry_pipe_runner_home()
+
+    init_page_and_upload_routes(app, globus_authenticator, page_func(), dry_pipe_runner=runner)
 
     app.mount("/api", api)
 
@@ -196,6 +178,8 @@ def init_app():
 
 def run():
 
+    os.environ["FAST_API_MAIN_PID"] = str(os.getpid())
+
     WEB_APP_PORT = os.environ.get("WEB_APP_PORT")
 
     port = 8000 if WEB_APP_PORT is None else int(WEB_APP_PORT)
@@ -203,7 +187,25 @@ def run():
     logger = logging.getLogger(__name__)
     logger.info(f"starting web app on port {port}")
 
-    uvicorn.run(app="dpfold.server:init_app", host="0.0.0.0", port=port, workers=2)
+    uvicorn.run(app="dpfold.server:init_app", host="0.0.0.0", port=port, workers=1, reload=True)
+
+
+def init_home():
+
+    """
+    export PIPELINE_INSTANCES_DIR=/home/maxl/dev/DPFold/example-run-site/instances-dir
+
+    export DRYPIPE_PIPELINE_INSTANCES_DIR_GLOBUS_COLLECTION_ID="29f94847-8c7b-4c7b-b102-b3f3d5351e83"
+
+    export WEB_GASKET_WEB_MANIFEST_PATH="/home/maxl/dev/DPFold/web-ui/build/manifest.json"
+
+    export DRYPIPE_PIPELINE_INSTANCES_DIR_GLOBUS="/home/maxl/"
+
+    export WEBGASKET_GLOBUS_CLIENT_ID=aca3664d-645e-4ea1-9afd-e73d6772a970
+
+    export WEB_SESSION_KEY=48ru034r043
+    """
+
 
 if __name__ == '__main__':
 

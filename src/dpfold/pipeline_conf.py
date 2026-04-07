@@ -68,7 +68,7 @@ def gen_conf():
 
         return str(v)
 
-    pipeline_run_site = read_dir_from_env_var("PIPELINE_INSTANCES_DIR")
+    pipeline_run_site = read_dir_from_env_var("DRYPIPE_PIPELINE_INSTANCES_DIR")
     dp_fold_instances_dir = str(Path(pipeline_run_site, "dp-fold"))
     Path(dp_fold_instances_dir).mkdir(exist_ok=True)
 
