@@ -46,19 +46,23 @@ def generic_conf(slurm_allocation, cc_username, remote_base_dir=None, ssh_remote
 
     task_venv = f"{collabfold_base}/programs/colabfold_af2.3.2_env"
 
+    ee = {
+        "MUGQIC_INSTALL_HOME": "/cvmfs/soft.mugqic/CentOS6",
+        #"DRYPIPE_TASK_DEBUG": "True",
+        "PYTHONPATH": f"$__pipeline_instance_dir/external-file-deps{this_python_root}",
+        "TASK_VENV": task_venv,
+        "collabfold_db": f"{collabfold_base}/programs/colabfold_db",
+        "HOME": "$__task_output_dir/fake_home"
+    }
+
+    if remote_base_dir is not None:
+        ee["remote_base_dir"] = remote_base_dir
+
     return lambda sbatch_options: TaskConf(
         executer_type="slurm",
         slurm_account=slurm_allocation,
         sbatch_options=sbatch_options,
-        extra_env={
-            "MUGQIC_INSTALL_HOME": "/cvmfs/soft.mugqic/CentOS6",
-            #"DRYPIPE_TASK_DEBUG": "True",
-            "PYTHONPATH": f"$__pipeline_instance_dir/external-file-deps{this_python_root}",
-            "TASK_VENV": task_venv,
-            "remote_base_dir": remote_base_dir,
-            "collabfold_db": f"{collabfold_base}/programs/colabfold_db",
-            "HOME": "$__task_output_dir/fake_home"
-        },
+        extra_env=ee,
         ssh_remote_dest=ssh_remote_dest,
         python_bin=f"{task_venv}/bin/python3",
         #TODO: make this work:
