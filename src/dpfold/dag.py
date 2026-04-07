@@ -292,15 +292,13 @@ def collabfold_dag(dsl, multimer_batch, samplesheet, collabfold_task_conf_func):
                 )()
 
 
-def colabfold_pipeline():
-
-    from dpfold.task_confs import cc_remote_task_conf_func_func
+def colabfold_pipeline(task_conf_func):
 
     def p(dsl):
 
         errors, samplesheet, multimers, pipeline_instance_args = parse_and_validate_input_files(dsl.pipeline_instance_dir())
 
-        tc = cc_remote_task_conf_func_func(pipeline_instance_args)
+        tc = task_conf_func(pipeline_instance_args)
 
         yield from collabfold_dag(dsl, multimers, samplesheet, tc)
 

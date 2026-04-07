@@ -27,11 +27,24 @@ def cc_remote_task_conf_func_func(pipeline_instance_args):
 
     remote_pipeline_base_dir = f"{remote_base_dir}/dpfold-pipelines-work-dir"
 
+
+    # /home/maxl/projects/def-marechal/programs/colabfold_af2.3.2_env
+
+    ssh_remote_dest = f"{cc_username}@{cc_host}:{remote_pipeline_base_dir}"
+
+    return generic_conf(slurm_allocation, cc_username, remote_base_dir=remote_base_dir, ssh_remote_dest=ssh_remote_dest)
+
+def tunnel_mode_conf(pipeline_instance_args):
+    slurm_allocation = pipeline_instance_args["cc_allocation"]
+
+    return generic_conf(slurm_allocation, os.environ["USER"])
+
+
+def generic_conf(slurm_allocation, cc_username, remote_base_dir=None, ssh_remote_dest=None):
+
     collabfold_base = f"/home/{cc_username}/projects/def-marechal"
 
     task_venv = f"{collabfold_base}/programs/colabfold_af2.3.2_env"
-
-    # /home/maxl/projects/def-marechal/programs/colabfold_af2.3.2_env
 
     return lambda sbatch_options: TaskConf(
         executer_type="slurm",
@@ -46,7 +59,7 @@ def cc_remote_task_conf_func_func(pipeline_instance_args):
             "collabfold_db": f"{collabfold_base}/programs/colabfold_db",
             "HOME": "$__task_output_dir/fake_home"
         },
-        ssh_remote_dest=f"{cc_username}@{cc_host}:{remote_pipeline_base_dir}",
+        ssh_remote_dest=ssh_remote_dest,
         python_bin=f"{task_venv}/bin/python3",
         #TODO: make this work:
         #run_as_group=slurm_account
@@ -60,7 +73,6 @@ def cc_remote_task_conf_func_func(pipeline_instance_args):
             ]
         }
     )
-
 
 
 
