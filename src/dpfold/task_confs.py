@@ -32,15 +32,21 @@ def cc_remote_task_conf_func_func(pipeline_instance_args):
 
     ssh_remote_dest = f"{cc_username}@{cc_host}:{remote_pipeline_base_dir}"
 
-    return generic_conf(slurm_allocation, cc_username, remote_base_dir=remote_base_dir, ssh_remote_dest=ssh_remote_dest)
+    return generic_conf(
+        slurm_allocation,
+        cc_username,
+        f"$__pipeline_instance_dir/external-file-deps{this_python_root}",
+        remote_base_dir=remote_base_dir,
+        ssh_remote_dest=ssh_remote_dest
+    )
 
 def tunnel_mode_conf(pipeline_instance_args):
     slurm_allocation = pipeline_instance_args["cc_allocation"]
 
-    return generic_conf(slurm_allocation, os.environ["USER"])
+    return generic_conf(slurm_allocation, os.environ["USER"], this_python_root)
 
 
-def generic_conf(slurm_allocation, cc_username, remote_base_dir=None, ssh_remote_dest=None):
+def generic_conf(slurm_allocation, cc_username, python_path, remote_base_dir=None, ssh_remote_dest=None):
 
     collabfold_base = f"/home/{cc_username}/projects/def-marechal"
 
@@ -49,7 +55,7 @@ def generic_conf(slurm_allocation, cc_username, remote_base_dir=None, ssh_remote
     ee = {
         "MUGQIC_INSTALL_HOME": "/cvmfs/soft.mugqic/CentOS6",
         #"DRYPIPE_TASK_DEBUG": "True",
-        "PYTHONPATH": f"$__pipeline_instance_dir/external-file-deps{this_python_root}",
+        "PYTHONPATH": python_path,
         "TASK_VENV": task_venv,
         "collabfold_db": f"{collabfold_base}/programs/colabfold_db",
         "HOME": "$__task_output_dir/fake_home"
