@@ -190,7 +190,7 @@ def run():
     logger = logging.getLogger(__name__)
     logger.info(f"starting web app on port {port}")
 
-    uvicorn.run(app="dpfold.server:init_app", host="0.0.0.0", port=port, workers=1, reload=True)
+    uvicorn.run(app="dpfold.server:init_app", host="0.0.0.0", port=port, workers=1)
 
 
 def init_home():
