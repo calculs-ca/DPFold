@@ -43,7 +43,7 @@ def cc_remote_task_conf_func_func(pipeline_instance_args):
 def tunnel_mode_conf(pipeline_instance_args):
     slurm_allocation = pipeline_instance_args["cc_allocation"]
 
-    return generic_conf(slurm_allocation, os.environ["USER"], this_python_root)
+    return generic_conf(slurm_allocation, os.environ["USER"], str(this_python_root))
 
 
 def generic_conf(slurm_allocation, cc_username, python_path, remote_base_dir=None, ssh_remote_dest=None):
