@@ -1,4 +1,6 @@
 import os
+import sys
+from contextlib import asynccontextmanager
 from pathlib import Path
 
 import uvicorn
@@ -10,7 +12,6 @@ from dpfold.multimer import parse_multimer_list_from_samplesheet
 from dpfold.pipeline_conf import gen_conf
 from dry_pipe.service import PipelineRunner
 from web_gasket.dry_pipe_web_socket_runner import DryPipeWebSocketRunner
-from web_gasket.globus_auth import GlobusAuthenticator
 
 from web_gasket.routes import init_page_and_upload_routes, create_sub_api
 
@@ -60,6 +61,21 @@ def parse_permissions(user_email):
     return []
 
 
+runner = None
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    global runner
+
+    await runner.start()
+    print("DryPipe service started")
+
+    yield  # This is where uvicorn runs
+
+    # Shutdown: clean up runner
+    if runner:
+        await runner.stop()
+        print("DryPipe service stopped")
 
 def init_app():
     logging_config = {
@@ -86,7 +102,7 @@ def init_app():
     logging.config.dictConfig(logging_config)
 
 
-    app = FastAPI()
+    app = FastAPI(lifespan=lifespan)
 
     app.add_middleware(
         CORSMiddleware,
@@ -146,33 +162,26 @@ def init_app():
             "exists": False
         }
 
-    session_key = os.environ.get("WEB_SESSION_KEY")
+    #session_key = os.environ.get("WEB_SESSION_KEY")
+    #if session_key is None:
+    #    session_key = "insecure-key"
 
-    if session_key is None:
-        raise Exception(f"missing env var WEB_SESSION_KEY")
+    #globus_authenticator = GlobusAuthenticator(api, uses_local_ssh_globus_for_file_transfers_only=True)
 
-    globus_authenticator = GlobusAuthenticator(api, uses_local_ssh_globus_for_file_transfers_only=True)
+    #def page_func():
+    #    return f"""
+    #    <script>
+    #        var ____pipeline_instances_collection_id='{globus_authenticator.pipeline_instances_collection_id}'
+    #        var ____pipeline_instances_collection_base_dir='{globus_authenticator.globus_pipeline_instances_dir}'
+    #        var ____webgastket_globus_client_id='{globus_authenticator.globus_client_id}'
+    #    </script>
+    #    """
 
-    def page_func():
-        return f"""
-        <script>
-            var ____pipeline_instances_collection_id='{globus_authenticator.pipeline_instances_collection_id}'
-            var ____pipeline_instances_collection_base_dir='{globus_authenticator.globus_pipeline_instances_dir}'
-            var ____webgastket_globus_client_id='{globus_authenticator.globus_client_id}'
-        </script>        
-        """
-
-    globus_authenticator.init_routes(api, app, page_func())
-
-    global runner
-
-    h = os.environ.get("WEB_GASKET_HOME")
-
-    runner = DryPipeWebSocketRunner(home_directory=h)
+    #globus_authenticator.init_routes(api, app, page_func())
 
     runner.create_dry_pipe_runner_home()
 
-    init_page_and_upload_routes(app, globus_authenticator, page_func(), dry_pipe_runner=runner)
+    init_page_and_upload_routes(app, None, dry_pipe_runner=runner)
 
     app.mount("/api", api)
 
@@ -181,7 +190,20 @@ def init_app():
 
 def run():
 
+    os.environ["DRYPIPE_SERVICE_CONFIG_GENERATOR"] = "dpfold.pipeline_conf:gen_conf"
     os.environ["FAST_API_MAIN_PID"] = str(os.getpid())
+
+
+    cwd = Path(os.getcwd())
+
+    if not cwd.joinpath("dpfold.env").exists():
+        print("current directory is NOT a valid DPFold home ")
+        exit(1)
+
+
+    cwd = str(cwd.absolute())
+    os.environ["WEB_GASKET_HOME"] = cwd
+    os.environ["DRYPIPE_PIPELINE_INSTANCES_DIR"] = cwd
 
     WEB_APP_PORT = os.environ.get("WEB_APP_PORT")
 
@@ -190,26 +212,37 @@ def run():
     logger = logging.getLogger(__name__)
     logger.info(f"starting web app on port {port}")
 
-    uvicorn.run(app=init_app(), host="0.0.0.0", port=port, workers=1)
+    global runner
+
+    h = os.environ.get("WEB_GASKET_HOME")
+
+    runner = DryPipeWebSocketRunner(home_directory=h)
+
+    app = init_app()
+    uvicorn.run(app, host="0.0.0.0", port=port, workers=1)
 
 
 def init_home():
 
-    """
-    export PIPELINE_INSTANCES_DIR=/home/maxl/dev/DPFold/example-run-site/instances-dir
+    cwd = os.getcwd()
 
-    export DRYPIPE_PIPELINE_INSTANCES_DIR_GLOBUS_COLLECTION_ID="29f94847-8c7b-4c7b-b102-b3f3d5351e83"
+    answer = input(f"create DPFold home in {cwd} ? Y, or type other directory")
+    if answer.lower() in ["y", "yes"]:
+        home = Path(cwd)
+    else:
+        home = Path(answer)
+        home.mkdir(exist_ok=True, parents=True)
 
-    export WEB_GASKET_WEB_MANIFEST_PATH="/home/maxl/dev/DPFold/web-ui/build/manifest.json"
+    runner = DryPipeWebSocketRunner(home_directory=home)
 
-    export DRYPIPE_PIPELINE_INSTANCES_DIR_GLOBUS="/home/maxl/"
+    home.joinpath("dpfold.env").touch()
 
-    export WEBGASKET_GLOBUS_CLIENT_ID=aca3664d-645e-4ea1-9afd-e73d6772a970
-
-    export WEB_SESSION_KEY=48ru034r043
-    """
+    runner.create_dry_pipe_runner_home()
 
 
 if __name__ == '__main__':
 
-    run()
+    if len(sys.argv) > 0 and sys.argv[1] == "init":
+        init_home()
+    else:
+        run()
