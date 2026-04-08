@@ -242,7 +242,7 @@ def init_home():
 
 if __name__ == '__main__':
 
-    if len(sys.argv) > 0 and sys.argv[1] == "init":
+    if len(sys.argv) > 1 and sys.argv[1] == "init":
         init_home()
     else:
         run()
