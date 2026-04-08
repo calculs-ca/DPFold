@@ -47,7 +47,7 @@ def tunnel_mode_conf(pipeline_instance_args):
 
 def generic_conf(slurm_allocation, python_path, remote_base_dir=None, ssh_remote_dest=None):
 
-    collabfold_base = "/projects/def-marechal/programs"
+    collabfold_base = "/project/def-marechal/programs"
 
     task_venv = f"{collabfold_base}/colabfold_af2.3.2_env"
 
