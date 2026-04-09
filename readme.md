@@ -18,7 +18,7 @@ Init local DPFold home :
 Start server : 
 
 ```
-/project/def-marechal/dpfold.sh init 
+/project/def-marechal/dpfold.sh 
 ```
 
 On your local machine, point your browser to http://127.0.0.1:8000
