@@ -2,6 +2,7 @@ import React from 'react'
 import ReactDOM from "react-dom/client"
 import {routes} from "@web-gasket/routes.jsx"
 import {GlobusApiProvider} from "@web-gasket/GlobusApiProvider.jsx"
+import {ApiProvider} from "@web-gasket/ApiSession.jsx"
 import {GlobusAuthProvider, LOG_LEVELS} from "@web-gasket/GlobusAuthProvider.jsx"
 import {PipelineInstanceCustomEditorProvider} from "@web-gasket/PipelineInstanceCustomEditorProvider.jsx"
 import {createBrowserRouter, RouterProvider} from "react-router-dom"
@@ -14,7 +15,7 @@ const doLogout = () =>
     document.location.href = "/login"
 
 
-const z1 = () =>
+const noAuthApp = () =>
     ReactDOM.createRoot(document.getElementById("app")).render(
         <React.StrictMode>
             <ApiProvider
@@ -37,30 +38,32 @@ const z1 = () =>
         </React.StrictMode>
     )
 
-const redirectUrl = `${window.location.protocol}//${window.location.host}/globusAuthCallback`
+noAuthApp()
 
-
-ReactDOM.createRoot(document.getElementById("app")).render(
-    <React.StrictMode>
-        <GlobusAuthProvider
-            logLevel={LOG_LEVELS.SILENT}
-            clientId={____webgastket_globus_client_id}
-            redirect={redirectUrl}
-            apiDict={{
-                ...allApi,
-                ...thisApi
-            }}
-        >
-            <GlobusApiProvider
-                pipelineInstanceCollectionId={____pipeline_instances_collection_id}
-                pipelineInstanceCollectionBaseDir={____pipeline_instances_collection_base_dir}
+const globusAuthApp = () => {
+    const redirectUrl = `${window.location.protocol}//${window.location.host}/globusAuthCallback`
+    ReactDOM.createRoot(document.getElementById("app")).render(
+        <React.StrictMode>
+            <GlobusAuthProvider
+                logLevel={LOG_LEVELS.SILENT}
+                clientId={____webgastket_globus_client_id}
+                redirect={redirectUrl}
+                apiDict={{
+                    ...allApi,
+                    ...thisApi
+                }}
             >
-                <PipelineInstanceCustomEditorProvider customRenderers={{
-                    "dp-fold": DPFoldArgsEditor
-                }}>
-                    <RouterProvider router={createBrowserRouter(routes({}))}/>
-                </PipelineInstanceCustomEditorProvider>
-            </GlobusApiProvider>
-        </GlobusAuthProvider>
-    </React.StrictMode>
-)
+                <GlobusApiProvider
+                    pipelineInstanceCollectionId={____pipeline_instances_collection_id}
+                    pipelineInstanceCollectionBaseDir={____pipeline_instances_collection_base_dir}
+                >
+                    <PipelineInstanceCustomEditorProvider customRenderers={{
+                        "dp-fold": DPFoldArgsEditor
+                    }}>
+                        <RouterProvider router={createBrowserRouter(routes({}))}/>
+                    </PipelineInstanceCustomEditorProvider>
+                </GlobusApiProvider>
+            </GlobusAuthProvider>
+        </React.StrictMode>
+    )
+}

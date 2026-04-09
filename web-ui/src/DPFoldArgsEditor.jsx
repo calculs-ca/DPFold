@@ -63,6 +63,8 @@ const DPFoldArgsEditor = ({pipelineInstance, pipelineArgsDispatcher}) => {
 
     const api = useApi()
 
+    const globusAvailable = false
+
     useEffect(() => {
 
         api.getDPFoldCustomFilesStatus(pipelineInstance.pid).then(s => {
@@ -115,9 +117,10 @@ const DPFoldArgsEditor = ({pipelineInstance, pipelineArgsDispatcher}) => {
             return 0
         }
 
-        if(!dpFoldArgsView.args.cc_cluster) {
+        /*if(!dpFoldArgsView.args.cc_cluster) {
             return 0
         }
+        */
 
         if(dpFoldArgsView.args.isPrepared) {
             return 2
@@ -285,7 +288,7 @@ const DPFoldArgsEditor = ({pipelineInstance, pipelineArgsDispatcher}) => {
             <div>
                 <AllocationSelect
                     value={dpFoldArgsView.args.cc_allocation || ""}
-                    allocs={dpFoldArgsView.ccAllocations ? dpFoldArgsView.ccAllocations[dpFoldArgsView.args.cc_cluster] : []}
+                    allocs={dpFoldArgsView.ccAllocations}
                     onSelect={alloc => dpFoldArgsDispatcher({
                         name: "update",
                         fieldName: "cc_allocation",
@@ -313,7 +316,7 @@ const DPFoldArgsEditor = ({pipelineInstance, pipelineArgsDispatcher}) => {
                 </div>
                 <div className={"basis-1/3 pt-7 ml-6"}>
                     <DefaultButton onClick={popFileManager} caption={"Manage pipeline Files"}/>
-                    <DefaultButton onClick={popGlobusFileManager} caption={"Globus File Manager"}/>
+                    {globusAvailable && <DefaultButton onClick={popGlobusFileManager} caption={"Globus File Manager"}/>}
                 </div>
             </div>
             <div className={"flex flex-row"}>
