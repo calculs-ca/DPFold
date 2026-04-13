@@ -215,11 +215,12 @@ def run():
     global runner
 
     h = os.environ.get("WEB_GASKET_HOME")
+    host_address = os.environ.get("WEB_GASKET_HOST_ADDRESS")
 
     runner = DryPipeWebSocketRunner(home_directory=h)
 
     app = init_app()
-    uvicorn.run(app, host="0.0.0.0", port=port, workers=1)
+    uvicorn.run(app, host=host_address or "0.0.0.0", port=port, workers=1)
 
 
 def init_home():
