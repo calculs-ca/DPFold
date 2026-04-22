@@ -263,7 +263,7 @@ def init_home():
 
 
     with open(home.joinpath("start.sh"), "w") as start_file:
-        write_lines_into(env_file, [
+        write_lines_into(start_file, [
             "#!/usr/bin/bash",
             "set -e\n",
             "./web-gasket-env.sh",
