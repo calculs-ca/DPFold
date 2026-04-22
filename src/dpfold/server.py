@@ -242,18 +242,29 @@ def init_home():
     runner = DryPipeWebSocketRunner(home_directory=home)
 
     dry_pipe_env = [
+        "#!/usr/bin/bash\n",
         f"export DRYPIPE_PIPELINE_INSTANCES_DIR={home.absolute()}",
         f"export DRYPIPE_SERVICE_CONFIG_GENERATOR=dpfold.pipeline_conf:gen_conf",
         f"export DRYPIPE_LOGGING_CONF={home.absolute()}/log-conf.json",
     ]
-    with open(home.joinpath("drypipe-env.sh")) as env_file:
+    with open(home.joinpath("drypipe-env.sh"), "w") as env_file:
         env_file.writelines(dry_pipe_env)
 
-    with open(home.joinpath("web-gasket-env.sh")) as env_file:
+    with open(home.joinpath("web-gasket-env.sh"), "w") as env_file:
         env_file.writelines(dry_pipe_env)
         env_file.writelines([
+            "#!/usr/bin/bash\n",
             f"export WEB_GASKET_HOST_ADDRESS=127.0.0.1",
             f"export WEB_GASKET_PORT=8001",
+        ])
+
+
+    with open(home.joinpath("start.sh"), "w") as start_file:
+        start_file.writelines([
+            "#!/usr/bin/bash",
+            "set -e\n",
+            "./web-gasket-env.sh",
+            "/project/def-marechal/dpfold.sh"
         ])
 
     runner.create_dry_pipe_runner_home()
