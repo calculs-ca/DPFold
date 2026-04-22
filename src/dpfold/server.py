@@ -256,8 +256,7 @@ def init_home():
     with open(home.joinpath("web-gasket-env.sh"), "w") as env_file:
         write_lines_into(env_file, dry_pipe_env)
         write_lines_into(env_file,[
-            "#!/usr/bin/bash\n",
-            f"export WEB_GASKET_HOST_ADDRESS=127.0.0.1",
+            f"\nexport WEB_GASKET_HOST_ADDRESS=127.0.0.1",
             f"export WEB_GASKET_PORT=8001\n",
         ])
 
@@ -266,7 +265,7 @@ def init_home():
         write_lines_into(start_file, [
             "#!/usr/bin/bash",
             "set -e\n",
-            "./web-gasket-env.sh",
+            ". ./web-gasket-env.sh",
             "/project/def-marechal/dpfold.sh\n"
         ])
 
