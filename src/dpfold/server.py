@@ -241,6 +241,9 @@ def init_home():
 
     runner = DryPipeWebSocketRunner(home_directory=home)
 
+    def write_lines_into(f, lines):
+        f.write("\n".join(lines))
+
     dry_pipe_env = [
         "#!/usr/bin/bash\n",
         f"export DRYPIPE_PIPELINE_INSTANCES_DIR={home.absolute()}",
@@ -248,11 +251,11 @@ def init_home():
         f"export DRYPIPE_LOGGING_CONF={home.absolute()}/log-conf.json",
     ]
     with open(home.joinpath("drypipe-env.sh"), "w") as env_file:
-        env_file.writelines(dry_pipe_env)
+        write_lines_into(env_file, dry_pipe_env)
 
     with open(home.joinpath("web-gasket-env.sh"), "w") as env_file:
-        env_file.writelines(dry_pipe_env)
-        env_file.writelines([
+        write_lines_into(env_file, dry_pipe_env)
+        write_lines_into(env_file,[
             "#!/usr/bin/bash\n",
             f"export WEB_GASKET_HOST_ADDRESS=127.0.0.1",
             f"export WEB_GASKET_PORT=8001",
@@ -260,7 +263,7 @@ def init_home():
 
 
     with open(home.joinpath("start.sh"), "w") as start_file:
-        start_file.writelines([
+        write_lines_into(env_file, [
             "#!/usr/bin/bash",
             "set -e\n",
             "./web-gasket-env.sh",
