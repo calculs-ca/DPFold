@@ -137,10 +137,10 @@ def collabfold_dag(dsl, multimer_batch, samplesheet, collabfold_task_conf_func):
 
     n_cpu_4_search = 8
 
-    colabfold_search_slurm_options = ["--time=48:00:00","--mem=100G", f"--cpus-per-task={n_cpu_4_search}"]
+    colabfold_search_slurm_options = ["--time=6:00:00","--mem=100G", f"--cpus-per-task={n_cpu_4_search}"]
 
     colabfold_fold_slurm_options = [
-        "--time=12:00:00", "--mem=40G", "--cpus-per-task=4",
+        "--time=3:00:00", "--mem=40G", "--cpus-per-task=4",
         "--gpus-per-node=1", f"--account={tc.slurm_account}"
     ]
 
@@ -290,6 +290,9 @@ def collabfold_dag(dsl, multimer_batch, samplesheet, collabfold_task_conf_func):
                 ).calls(
                     generate_aggregate_report
                 )()
+                dsl.logger.debug("array has ended")
+            else:
+                dsl.logger.debug("some array child tasks are still running")
 
 
 def colabfold_pipeline(task_conf_func):

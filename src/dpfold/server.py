@@ -196,7 +196,7 @@ def run():
 
     cwd = Path(os.getcwd())
 
-    if not cwd.joinpath("dpfold.env").exists():
+    if not cwd.joinpath("web-gasket-env.sh").exists():
         print("current directory is NOT a valid DPFold home ")
         exit(1)
 
@@ -205,7 +205,12 @@ def run():
     os.environ["WEB_GASKET_HOME"] = cwd
     os.environ["DRYPIPE_PIPELINE_INSTANCES_DIR"] = cwd
 
-    WEB_APP_PORT = os.environ.get("WEB_APP_PORT")
+    WEB_APP_PORT = os.environ.get("WEB_GASKET_PORT")
+
+
+    t = f'Tunnel:  "ssh -L {WEB_APP_PORT}:127.0.0.1:{WEB_APP_PORT} narval"'
+
+    print(f"Tunnel : {t}")
 
     port = 8000 if WEB_APP_PORT is None else int(WEB_APP_PORT)
 
@@ -236,7 +241,20 @@ def init_home():
 
     runner = DryPipeWebSocketRunner(home_directory=home)
 
-    home.joinpath("dpfold.env").touch()
+    dry_pipe_env = [
+        f"export DRYPIPE_PIPELINE_INSTANCES_DIR={home.absolute()}",
+        f"export DRYPIPE_SERVICE_CONFIG_GENERATOR=dpfold.pipeline_conf:gen_conf",
+        f"export DRYPIPE_LOGGING_CONF={home.absolute()}/log-conf.json",
+    ]
+    with open(home.joinpath("drypipe-env.sh")) as env_file:
+        env_file.writelines(dry_pipe_env)
+
+    with open(home.joinpath("web-gasket-env.sh")) as env_file:
+        env_file.writelines(dry_pipe_env)
+        env_file.writelines([
+            f"export WEB_GASKET_HOST_ADDRESS=127.0.0.1",
+            f"export WEB_GASKET_PORT=8001",
+        ])
 
     runner.create_dry_pipe_runner_home()
 
