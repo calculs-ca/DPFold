@@ -261,14 +261,17 @@ def init_home():
             f"export WEB_GASKET_PORT=8001\n",
         ])
 
-
-    with open(home.joinpath("start.sh"), "w") as start_file:
+    start_script = home.joinpath("start.sh")
+    with open(start_script, "w") as start_file:
         write_lines_into(start_file, [
             "#!/usr/bin/bash",
             "set -e\n",
             "./web-gasket-env.sh",
             "/project/def-marechal/dpfold.sh\n"
         ])
+
+    os.chmod(start_script, 0o770)
+
 
     runner.create_dry_pipe_runner_home()
 
