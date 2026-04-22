@@ -248,7 +248,7 @@ def init_home():
         "#!/usr/bin/bash\n",
         f"export DRYPIPE_PIPELINE_INSTANCES_DIR={home.absolute()}",
         f"export DRYPIPE_SERVICE_CONFIG_GENERATOR=dpfold.pipeline_conf:gen_conf",
-        f"export DRYPIPE_LOGGING_CONF={home.absolute()}/log-conf.json",
+        f"export DRYPIPE_LOGGING_CONF={home.absolute()}/log-conf.json\n",
     ]
     with open(home.joinpath("drypipe-env.sh"), "w") as env_file:
         write_lines_into(env_file, dry_pipe_env)
@@ -258,7 +258,7 @@ def init_home():
         write_lines_into(env_file,[
             "#!/usr/bin/bash\n",
             f"export WEB_GASKET_HOST_ADDRESS=127.0.0.1",
-            f"export WEB_GASKET_PORT=8001",
+            f"export WEB_GASKET_PORT=8001\n",
         ])
 
 
@@ -267,7 +267,7 @@ def init_home():
             "#!/usr/bin/bash",
             "set -e\n",
             "./web-gasket-env.sh",
-            "/project/def-marechal/dpfold.sh"
+            "/project/def-marechal/dpfold.sh\n"
         ])
 
     runner.create_dry_pipe_runner_home()
