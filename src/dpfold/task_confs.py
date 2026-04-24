@@ -47,6 +47,8 @@ def tunnel_mode_conf(pipeline_instance_args):
 
 def generic_conf(slurm_allocation, python_path, remote_base_dir=None, ssh_remote_dest=None):
 
+    # /project/def-marechal/programs/colabfold_db_fixed/
+
     collabfold_base = "/project/def-marechal/programs"
 
     task_venv = f"{collabfold_base}/colabfold_af2.3.2_env"
@@ -56,7 +58,7 @@ def generic_conf(slurm_allocation, python_path, remote_base_dir=None, ssh_remote
         #"DRYPIPE_TASK_DEBUG": "True",
         "PYTHONPATH": python_path,
         "TASK_VENV": task_venv,
-        "collabfold_db": f"{collabfold_base}/colabfold_db",
+        "collabfold_db": f"{collabfold_base}/colabfold_db_fixed",
         "HOME": "$__task_output_dir/fake_home"
     }
 
