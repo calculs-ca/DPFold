@@ -74,3 +74,7 @@ def gen_conf():
 
 
     yield dp_fold_instances_dir, DPFoldPipelineType()
+
+
+def dag():
+    return colabfold_pipeline(tunnel_mode_conf)
