@@ -3,6 +3,7 @@ import zipfile
 from pathlib import Path
 import json
 
+from dpfold.task_confs import generic_conf
 from dry_pipe import DryPipe, TaskConf
 
 from dpfold import colabfold_analysis
@@ -11,6 +12,23 @@ from dpfold.multimer import file_path as multimer_code_file
 
 
 def parse_and_validate_input_files(pipeline_instance_dir):
+
+    errors, samplesheet, multimers, pipeline_instance_args = parse_and_validate_input_files_for_ui(pipeline_instance_dir)
+
+    if len(errors) > 0:
+        raise Exception(f"Error parsing input files: {errors}")
+
+    this_python_root = Path(__file__).parent.parent
+
+    def conf_func(slurm_allocation=None):
+        if slurm_allocation is None:
+            slurm_allocation = pipeline_instance_args["cc_allocation"]
+
+        return generic_conf(slurm_allocation, str(this_python_root))
+
+    return multimers, samplesheet, conf_func
+
+def parse_and_validate_input_files_for_ui(pipeline_instance_dir):
 
     samplesheet = os.path.join(pipeline_instance_dir, "samplesheet.tsv")
     pipeline_instance_args_file = os.path.join(pipeline_instance_dir, "args.json")
@@ -51,7 +69,20 @@ def generate_fasta_colabfold(samplesheet, multimer_name, fa_out):
 
     multimer = multimer_batch.multimer_by_name(multimer_name)
 
-    return multimer.generate_fasta_colabfold(fa_out)
+    multimer.generate_fasta_colabfold(fa_out)
+
+
+@DryPipe.python_call()
+def generate_all_fold_fastas(samplesheet, list_of_fastas_txt, __task_output_dir):
+    multimer_batch = parse_multimer_list_from_samplesheet(samplesheet)
+
+    with open(Path(__task_output_dir, list_of_fastas_txt), "w") as list_of_fastas_txt_f:
+        for multimer in multimer_batch:
+            mn = multimer.multimer_name()
+            list_of_fastas_txt_f.write(f"{mn}\n")
+            fa_out = Path(__task_output_dir, mn)
+            fa_out.mkdir(exist_ok=False)
+            multimer.generate_fasta_colabfold(fa_out.joinpath('fold.fa'))
 
 
 @DryPipe.python_call()
@@ -129,20 +160,106 @@ def generate_aggregate_report(__pipeline_instance_dir, interfaces_csv, summary_c
 
 
 
-def collabfold_dag(dsl, multimer_batch, samplesheet, collabfold_task_conf_func):
+def dag_search_all_upfront(dsl):
+
+    all_multimers, samplesheet, create_task_conf = parse_and_validate_input_files(dsl.pipeline_instance_dir())
+
+    download_pdbs_task = dsl.task(
+        key="cf-download-pdbs"
+    ).inputs(
+        samplesheet=dsl.file(samplesheet)
+    ).outputs(
+        pdb_folder=dsl.file("pdbs")
+    ).calls(download_pdbs)()
+
+    yield download_pdbs_task
+
+    gen_fastas = dsl.task(
+        key="cf-gen-all-fastas"
+    ).inputs(
+        samplesheet=dsl.file(samplesheet)
+    ).outputs(
+        list_of_fastas_txt=dsl.file("list_of_fastas.txt")
+    ).calls(generate_all_fold_fastas)()
+
+    yield gen_fastas
+
+    yield dsl.task(
+        key="cf-search-all",
+        task_conf=create_task_conf(slurm_allocation="def-rodrigu1").override(sbatch_options=[
+            "--time=0:05:00","--mem=250G", f"--cpus-per-task=64", "--nodes=1"
+        ])
+    ).inputs(
+        list_of_fastas_txt=gen_fastas.outputs.list_of_fastas_txt,
+        samplesheet=dsl.file(samplesheet),
+        collabfold_db="/project/def-marechal/programs/colabfold_db"
+    ).calls(
+        """
+        #!/usr/bin/bash
+
+        set -ex
+        
+        start=$SECONDS
+                                        
+        local_collabfold_db="$SLURM_TMPDIR/collabfold_db"
+        mkdir -p $local_collabfold_db
+        ln -s "$collabfold_db"/* "$local_collabfold_db"/
+                
+        rm "$local_collabfold_db/uniref30_2302_db.idx"
+        rm "$local_collabfold_db/pdb100_230517.idx"
+        rm "$local_collabfold_db/colabfold_envdb_202108_db.idx"
+        
+        dd if="$collabfold_db/uniref30_2302_db.idx" of="$local_collabfold_db/uniref30_2302_db.idx" bs=1G status=progress
+        dd if="$collabfold_db/colabfold_envdb_202108_db.idx" of="$local_collabfold_db/colabfold_envdb_202108_db.idx" bs=1G status=progress
+        dd if="$collabfold_db/pdb100_230517.idx" of="$local_collabfold_db/pdb100_230517.idx" bs=1G status=progress
+        
+        duration=$(( SECONDS - start ))
+        echo "T__INIT_COPY: $duration"
+                
+        mkdir -p $HOME/.licenses/
+        touch $HOME/.licenses/intel
+
+        module load StdEnv/2020 gcc/9.3.0 cuda/11.4 openmpi/4.0.3 openmm/8.0.0 hh-suite/3.3.0 hmmer/3.2.1 mmseqs2/14-7e284
+
+        TE=$TASK_VENV/bin/activate                      
+        echo "will activate env: $TE"
+        source $TE
+        
+        while IFS= read -r $fa; do
+            echo "running colabfold search for $fa"
+            
+            start=$SECONDS
+            
+            colabfold_search \\
+              --threads $SLURM_CPUS_PER_TASK --use-env 1 --db-load-mode 2 \\
+              --mmseqs mmseqs \\
+              --db1 $local_collabfold_db/uniref30_2302_db \\
+              --db2 $local_collabfold_db/pdb100_230517 \\
+              --db3 $local_collabfold_db/colabfold_envdb_202108_db \\
+              $__pipeline_instance_dir/output/$fa/fold.fa $collabfold_db $__task_output_dir
+              
+            duration=$(( SECONDS - start ))
+            echo "T__$fa: $duration"
+              
+        done < $list_of_fastas_txt
+        
+        echo "done"    
+        """)()
+
+
+
+def collabfold_dag(dsl):
+
+
+    multimer_batch, samplesheet, create_task_conf = parse_and_validate_input_files(dsl.pipeline_instance_dir())
 
     pipeline_instance_dir_basename = os.path.basename(dsl.pipeline_instance_dir())
 
-    tc = collabfold_task_conf_func([])
+    n_cpu_4_search = 1
 
-    n_cpu_4_search = 8
+    colabfold_search_slurm_options = ["--time=48:00:00","--mem=100G", f"--cpus-per-task={n_cpu_4_search}"]
 
-    colabfold_search_slurm_options = ["--time=6:00:00","--mem=100G", f"--cpus-per-task={n_cpu_4_search}"]
-
-    colabfold_fold_slurm_options = [
-        "--time=3:00:00", "--mem=40G", "--cpus-per-task=4",
-        "--gpus-per-node=1", f"--account={tc.slurm_account}"
-    ]
+    colabfold_fold_slurm_options = ["--time=12:00:00", "--mem=40G", "--cpus-per-task=4", "--gpus-per-node=1"]
 
     download_pdbs_task = dsl.task(
         key="cf-download-pdbs"
@@ -189,8 +306,10 @@ def collabfold_dag(dsl, multimer_batch, samplesheet, collabfold_task_conf_func):
                 #!/usr/bin/bash
     
                 set -ex
-                
-                echo "pdb_folder: $pdb_folder"
+                                                
+                local_collabfold_db="$SLURM_TMPDIR/collabfold_db"
+                mkdir -p $local_collabfold_db                
+                ln -s "$collabfold_db"/* "$local_collabfold_db"/                                                
                 
                 mkdir -p $HOME/.licenses/
                 touch $HOME/.licenses/intel
@@ -203,7 +322,7 @@ def collabfold_dag(dsl, multimer_batch, samplesheet, collabfold_task_conf_func):
     
                 echo "running colabfold search"
                 colabfold_search \\
-                  --threads $n_cpu_4_search --use-env 1 --db-load-mode 0 \\
+                  --threads $SLURM_CPUS_PER_TASK --use-env 1 --db-load-mode 2 \\
                   --mmseqs mmseqs \\
                   --db1 $collabfold_db/uniref30_2302_db \\
                   --db2 $collabfold_db/pdb100_230517 \\
@@ -295,15 +414,10 @@ def collabfold_dag(dsl, multimer_batch, samplesheet, collabfold_task_conf_func):
                 dsl.logger.debug("some array child tasks are still running")
 
 
-def colabfold_pipeline(task_conf_func):
+def colabfold_pipeline():
 
     def p(dsl):
-
-        errors, samplesheet, multimers, pipeline_instance_args = parse_and_validate_input_files(dsl.pipeline_instance_dir())
-
-        tc = task_conf_func(pipeline_instance_args)
-
-        yield from collabfold_dag(dsl, multimers, samplesheet, tc)
+        yield from collabfold_dag(dsl)
 
     return DryPipe.create_pipeline(p)
 
