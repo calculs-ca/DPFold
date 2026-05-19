@@ -246,6 +246,9 @@ def init_home():
 
     dry_pipe_env = [
         "#!/usr/bin/bash\n",
+        f"p=/project/def-marechal/DPFold",
+        f"export PYTHONPATH=$p/src:$p/WebGasket:$p/WebGasket/DryPipe",
+        f"export DRYPIPE_PIPELINE_GENERATOR=dpfold.pipeline_conf:dag:"
         f"export DRYPIPE_PIPELINE_INSTANCES_DIR={home.absolute()}",
         f"export DRYPIPE_SERVICE_CONFIG_GENERATOR=dpfold.pipeline_conf:gen_conf",
         f"export DRYPIPE_LOGGING_CONF={home.absolute()}/log-conf.json\n",

@@ -51,8 +51,7 @@ class Multimer:
     def __str__(self):
         return self.multimer_name()
 
-    def generate_fasta_colabfold(self, fa_out):
-
+    def append_colabfold_seq_to_fasta(self, file_handle):
         fa_header = "_".join([
             f"{protein.name}_{protein.n_occurences}"
             for protein in self.proteins
@@ -62,10 +61,13 @@ class Multimer:
         for protein in self.proteins:
             fa_seqs.extend([protein.seq] * protein.n_occurences)
 
+        file_handle.write(f">{fa_header}\n")
+        file_handle.write(":".join(fa_seqs))
+        file_handle.write("\n")
+
+    def generate_fasta_colabfold(self, fa_out):
         with open(fa_out, 'w') as f:
-            f.write(f">{fa_header}\n")
-            f.write(":".join(fa_seqs))
-            f.write("\n")
+            self.append_colabfold_seq_to_fasta(f)
 
     def sequence_length(self):
         res = 0
@@ -202,6 +204,8 @@ def parse_multimer_list_from_samplesheet(samplesheet, single_multimer_name=None,
                         yield Protein(name, n_occurences, pdb, seq)
                     except IndexError:
                         raise Exception(f"to few columns in line {line_number}")
+                    except ValueError:
+                        raise Exception(f"int(prot_rows[1]) is not an int, line {line_number}")
 
             m = Multimer(list(prots_in_row()), line_number)
 
@@ -286,6 +290,9 @@ class MultimerBatch:
 
     def __iter__(self):
         yield from self.multimer_list
+
+    def sequence_count(self):
+        return len(self.multimer_list)
 
 
 def file_path():

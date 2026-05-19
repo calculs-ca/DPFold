@@ -3,7 +3,7 @@ import os
 from pathlib import Path
 
 
-from dpfold.dag import colabfold_pipeline, parse_and_validate_input_files
+from dpfold.dag import colabfold_pipeline, parse_and_validate_input_files_for_ui
 from dpfold.task_confs import tunnel_mode_conf
 from dry_pipe.pipeline import PipelineType
 
@@ -35,7 +35,7 @@ class DPFoldPipelineType(PipelineType):
         return colabfold_pipeline(tunnel_mode_conf)
 
     def validate_before_run(self, pipeline_instance_dir):
-        errors, samplesheet, multimers, _ = parse_and_validate_input_files(pipeline_instance_dir)
+        errors, samplesheet, multimers, _ = parse_and_validate_input_files_for_ui(pipeline_instance_dir)
         return errors, None
 
     def default_args(self):
