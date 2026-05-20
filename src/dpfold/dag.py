@@ -192,7 +192,7 @@ def mmseqs_create_index(dsl):
     )()
 
 
-def required_cpus_and_time(n_seqs):
+def search_required_cpus_and_time(n_seqs):
 
     def f():
         if n_seqs <= 16:
@@ -249,7 +249,7 @@ def prepare_pipeline(dsl, samplesheet):
 
 def colabfold_search(dsl, seq_count, query_fa, batch_suffix=""):
 
-    n_cpus, wall_time_hours = required_cpus_and_time(seq_count)
+    n_cpus, wall_time_hours = search_required_cpus_and_time(seq_count)
 
     sbatch_options = [
         f"--time={wall_time_hours}:00:00",
@@ -347,6 +347,9 @@ def collabfold_dag(dsl):
 
     for match in dsl.query_all_or_nothing(prepare_pipeline_task.key, state="completed"):
 
+        longest_seq_in_batch = multimer_batch.longest_seq_in_batch()
+        fold_wall_time = "1:00:00" if longest_seq_in_batch < 1200 else "2:30:00"
+
         search_task = colabfold_search(
             dsl,
             int(match.tasks[0].outputs.sequence_count),
@@ -360,7 +363,7 @@ def collabfold_dag(dsl):
             a3m_idx = 0
 
             tc = create_task_conf().with_sbatch_options(
-                time="1:00:00", mem="40G", cpu_per_task=4, gpus_per_node=1
+                time=fold_wall_time, mem="40G", cpu_per_task=4, gpus_per_node=1
             )
 
             for multimer in multimer_batch:
@@ -566,7 +569,7 @@ def prepare_instance_for_perf_test():
         batch_idx = 0
         for batch_size in [8, 16, 32, 64, 128, 200, 300, 400, 500, len(sorted_multimers) -1]:
             batch_idx += 1
-            cpus, time = required_cpus_and_time(batch_size)
+            cpus, time = search_required_cpus_and_time(batch_size)
             fa = Path(pid, f"batch-{batch_idx}_{batch_size}_{cpus}.fasta")
             with open(fa, "w") as f_:
                 for i in range(0, batch_size):
@@ -579,7 +582,7 @@ def prepare_instance_for_perf_test():
 def test():
     def do_it():
         for i in (8,16,32,64,128, 256, 300, 400, 500, 600):
-            p = required_cpus_and_time(i)
+            p = search_required_cpus_and_time(i)
             print(f"{i}: {p}")
     return do_it
 
@@ -609,7 +612,7 @@ def chart_per_results():
     res = sorted(g(), key=lambda x: x[0])
 
     for batch_size, num_cpu, actual_time in res:
-        _, estimated_time = required_cpus_and_time(batch_size)
+        _, estimated_time = search_required_cpus_and_time(batch_size)
         print(f"{batch_size}\t{num_cpu}\t{estimated_time}\t{actual_time}")
 
 if __name__ == "__main__":

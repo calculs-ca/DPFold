@@ -294,6 +294,12 @@ class MultimerBatch:
     def sequence_count(self):
         return len(self.multimer_list)
 
+    def longest_seq_in_batch(self):
+        return max([
+            m.sequence_length()
+            for m in self.multimer_list
+        ])
+
 
 def file_path():
     return __file__
