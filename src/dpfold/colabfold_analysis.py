@@ -655,7 +655,7 @@ def analyze_multimer(
         input_folder: str,
         output_folder: str,
         multimer_name: str,
-        fasta: str,
+        #fasta: str,
         max_distance: float,
         min_plddt: float, max_pae: float, pae_mode: str, valid_aas: str = '', ignore_pae: bool = False
 ):
@@ -912,12 +912,12 @@ def run(args=None):
         type=str,
         required=True
     )
-    parser.add_argument(
-        "--fasta",
-        help="Fasta containing the proteins in the multimer",
-        type=file_path,
-        required=True
-    )
+    #parser.add_argument(
+    #    "--fasta",
+    #    help="Fasta containing the proteins in the multimer",
+    #    type=file_path,
+    #    required=True
+    #)
     parser.add_argument(
         "--distance",
         default=8,
@@ -978,8 +978,7 @@ def run(args=None):
     analyze_multimer(
         args.pred_folder,
         args.out_folder,
-        args.multimer_name,
-        args.fasta,
+        args.multimer_name, #args.fasta,
         args.distance,
         args.plddt,
         args.pae,
