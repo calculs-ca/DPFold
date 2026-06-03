@@ -51,11 +51,14 @@ class Multimer:
     def __str__(self):
         return self.multimer_name()
 
-    def append_colabfold_seq_to_fasta(self, file_handle):
-        fa_header = "_".join([
+    def fold_name_in_fasta(self):
+        return "_".join([
             f"{protein.name}_{protein.n_occurences}"
             for protein in self.proteins
         ])
+
+    def append_colabfold_seq_to_fasta(self, file_handle):
+        fa_header = self.fold_name_in_fasta()
 
         fa_seqs = []
         for protein in self.proteins:
@@ -192,6 +195,10 @@ def parse_multimer_list_from_samplesheet(samplesheet, single_multimer_name=None,
             def prots_in_row():
                 i = iter(row)
                 while prot_rows := list(islice(i, 4)):
+
+                    if len(prot_rows) % 4 > 0:
+                        raise Exception(f"row {i} has {len(prot_rows)} columns, NOT a multiple of 4 !")
+
                     name = prot_rows[0]
                     if "-" in name:
                         raise Exception(f"illegal prot name on line {line_number}, can't use '-' ")

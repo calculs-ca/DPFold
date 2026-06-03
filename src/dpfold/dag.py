@@ -261,13 +261,12 @@ def colabfold_search(dsl, seq_count, query_fa, batch_suffix=""):
         key=f"t-search{batch_suffix}",
         task_conf=generic_conf(slurm_allocation="def-rodrigu1").override(sbatch_options=sbatch_options)
     ).inputs(
-        query_fa=query_fa,
-        collabfold_db="/project/def-marechal/colabfold_chunked_db"
+        query_fa=query_fa        
     ).calls(
         """
         #!/usr/bin/bash
 
-        set -ex
+        set -ex        
 
         rm -Rf $__task_output_dir/*                                
 
@@ -282,7 +281,7 @@ def colabfold_search(dsl, seq_count, query_fa, batch_suffix=""):
         rm ${local_collabfold_db}/*.idx.*
         rm ${local_collabfold_db}/*.index
         rm ${local_collabfold_db}/*.dbtype
-        rm ${local_collabfold_db}/pdb100_230517*        
+        rm ${local_collabfold_db}/pdb100_230517*
 
         rclone_args="copy --multi-thread-streams=$SLURM_CPUS_PER_TASK --ignore-checksum --copy-links --log-level=INFO --stats=10s --stats-one-line --log-file=$__task_control_dir/rclone.log --buffer-size=4G"
         
@@ -309,19 +308,16 @@ def colabfold_search(dsl, seq_count, query_fa, batch_suffix=""):
         mkdir -p $HOME/.licenses/
         touch $HOME/.licenses/intel
 
-        module load StdEnv/2020 gcc/9.3.0 cuda/11.4 openmpi/4.0.3 openmm/8.0.0 hh-suite/3.3.0 hmmer/3.2.1 mmseqs2/14-7e284
-
-        TE=$TASK_VENV/bin/activate                      
-        echo "will activate env: $TE"
-        source $TE
+        # module load StdEnv/2020 gcc/9.3.0 cuda/11.4 openmpi/4.0.3 openmm/8.0.0 hh-suite/3.3.0 hmmer/3.2.1        
+        # module load StdEnv/2023 gcc cuda/12.2
 
         start=$SECONDS
 
         export MMSEQS_SPLIT_MEMORY_LIMIT="--split-memory-limit 100G"                
 
-        python3 -u -m dpfold.patched_colabfold_search \\
+        $PIXI_RUN python3 -u -m dpfold.patched_colabfold_search \\
            --threads $SLURM_CPUS_PER_TASK --use-env 1 --db-load-mode 0 \\
-           --mmseqs mmseqs \\
+           --mmseqs $MMSEQS_PATH \\
            --db1 $local_collabfold_db/uniref30_2302_db \\
            --db2 $local_collabfold_db/pdb100_230517 \\
            --db3 $local_collabfold_db/colabfold_envdb_202108_db \\
@@ -360,11 +356,7 @@ def collabfold_dag(dsl):
 
         for _ in dsl.query_all_or_nothing(search_task.key, state="completed"):
 
-            a3m_idx = 0
-
-            tc = create_task_conf().with_sbatch_options(
-                time=fold_wall_time, mem="40G", cpu_per_task=4, gpus_per_node=1
-            )
+            tc = create_task_conf().with_sbatch_options(time=fold_wall_time, mem="40G", cpus_per_task=2, gpus_per_node=1)
 
             for multimer in multimer_batch:
 
@@ -379,9 +371,9 @@ def collabfold_dag(dsl):
                     multimer_name=multimer_name,
                     pdb_folder=prepare_pipeline_task.outputs.pdb_folder,
                     fold_name=str(multimer.fold_name()),
+                    fold_name_in_fasta = multimer.fold_name_in_fasta(),
                     colabfold_analysis_script=dsl.file(colabfold_analysis.code_path()),
-                    has_pdbs=str("True" if multimer_batch.multimer_by_name(multimer_name).has_pdbs() else "False"),
-                    a3m_idx=a3m_idx
+                    has_pdbs=str("True" if multimer_batch.multimer_by_name(multimer_name).has_pdbs() else "False")
                 ).outputs(
                     fa_out=dsl.file(f'fold.fa'),
                     all_results=dsl.file_set("**/*", exclude_pattern="*.pkl|*.pickle|*fake_home*")
@@ -390,14 +382,10 @@ def collabfold_dag(dsl):
     
                     set -ex
                     
-                    a3m="$__pipeline_instance_dir/output/t-search/${a3m_idx}.a3m"
-                    
-                    mkdir -p $HOME/.licenses/
-                    touch $HOME/.licenses/intel                
-                    
-                    module load StdEnv/2020 gcc/9.3.0 cuda/11.4 openmpi/4.0.3 openmm/8.0.0 hh-suite/3.3.0 hmmer/3.2.1 mmseqs2/14-7e284
-    
-                    source $TASK_VENV/bin/activate
+                    a3m="$__pipeline_instance_dir/output/t-search/${fold_name_in_fasta}.a3m"
+                                            
+                    # module purge
+                    # module load StdEnv/2023 gcc cuda/12.2
     
                     export TF_FORCE_UNIFIED_MEMORY="1"
                     export XLA_PYTHON_CLIENT_MEM_FRACTION="4.0"
@@ -413,28 +401,28 @@ def collabfold_dag(dsl):
                     fi
                     
                     echo "template_args: $template_args"
-                    
-                    echo "pb1: $python_bin"
-                    echo "pb2: $TASK_VENV/bin/python3"
+                                        
     
                     echo "running colabfold fold"
-                    colabfold_batch $template_args \\
+                    $PIXI_RUN colabfold_batch $template_args \\
                       --use-gpu-relax --amber --num-relax 3 \\
                       --num-models 3 \\
                       --num-recycle 30 --recycle-early-stop-tolerance 0.5 \\
                       --model-type auto \\
                       --data $collabfold_db \\
                       $a3m \\
-                      $__task_output_dir                            
+                      $__task_output_dir
+                        
+                    echo "check existence of *.pdb (some cuda failures are silent)
+                    ls $__task_output_dir/*.pdb
     
                     echo "running AF2multimer-analysis on $__task_output_dir"
                     
-                    python3 -u $colabfold_analysis_script \\
+                    $PIXI_RUN python3 -u $colabfold_analysis_script \\
                         --pred_folder=$__task_output_dir \\
                         --out_folder=$__task_output_dir \\
                         --multimer_name=$multimer_name
-                        
-                    # --fasta=$fa_out 
+                                            
     
                     echo "done"
                     """
@@ -511,20 +499,29 @@ def generate_balanced_batches(sequence_generator, max_residues_per_node=300000):
 
 def generic_conf(slurm_allocation, remote_base_dir=None, ssh_remote_dest=None):
 
-    python_path = str(Path(__file__).parent.parent)
+
+    def envv(name):
+        v = os.environ.get(name)
+        if not v:
+            raise Exception(f"{name} var should be set and non empty: '{name}'")
+        return v
 
 
-    collabfold_base = "/project/def-marechal/programs"
+    pixi_exe = envv("PIXI_EXE")
+    pixi_root = envv('PIXI_PROJECT_ROOT')
+    collabfold_db = envv('COLABFOLD_DB')
+    conda_prefix = envv('CONDA_PREFIX')
+    mmseqs_path = f"{conda_prefix}/bin/mmseqs"
 
-    task_venv = f"{collabfold_base}/colabfold_af2.3.2_env"
+
+    pixi_run = f"{pixi_exe} run --manifest-path={pixi_root}"
 
     ee = {
         "MUGQIC_INSTALL_HOME": "/cvmfs/soft.mugqic/CentOS6",
-        #"DRYPIPE_TASK_DEBUG": "True",
-        "PYTHONPATH": python_path,
-        "TASK_VENV": task_venv,
-        "collabfold_db": f"{collabfold_base}/colabfold_db_fixed",
-        "HOME": "$__task_output_dir/fake_home"
+        "collabfold_db": collabfold_db,
+        "HOME": "$__task_output_dir/fake_home",
+        "PIXI_RUN": pixi_run,
+        "MMSEQS_PATH": mmseqs_path
     }
 
     if remote_base_dir is not None:
@@ -534,10 +531,7 @@ def generic_conf(slurm_allocation, remote_base_dir=None, ssh_remote_dest=None):
         executer_type="slurm",
         slurm_account=slurm_allocation,
         extra_env=ee,
-        ssh_remote_dest=ssh_remote_dest,
-        python_bin=f"{task_venv}/bin/python3",
-        #TODO: make this work:
-        #run_as_group=slurm_account
+        ssh_remote_dest=ssh_remote_dest,        
         run_as_group=None,
         auto_restart_condition_regexp_per_log_file={
             "drypipe.log": [".*BrokenPipeError.*"],
