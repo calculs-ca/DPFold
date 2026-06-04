@@ -344,7 +344,7 @@ def collabfold_dag(dsl):
     for match in dsl.query_all_or_nothing(prepare_pipeline_task.key, state="completed"):
 
         longest_seq_in_batch = multimer_batch.longest_seq_in_batch()
-        fold_wall_time = "1:00:00" if longest_seq_in_batch < 1200 else "2:30:00"
+        fold_wall_time = "1:00:00" if longest_seq_in_batch < 1200 else "4:30:00"
 
         search_task = colabfold_search(
             dsl,
@@ -380,17 +380,19 @@ def collabfold_dag(dsl):
                 ).calls("""
                     #!/usr/bin/bash
     
-                    set -ex
-                    
-                    a3m="$__pipeline_instance_dir/output/t-search/${fold_name_in_fasta}.a3m"
+                    set -ex                                        
                                             
                     # module purge                        
                     # module load StdEnv/2023 gcc cuda/12.2
     
-                    export TF_FORCE_UNIFIED_MEMORY="1"
-                    export XLA_PYTHON_CLIENT_MEM_FRACTION="4.0"
+                    #export TF_FORCE_UNIFIED_MEMORY="1"
+                    #export XLA_PYTHON_CLIENT_MEM_FRACTION="4.0"
+                    #export XLA_PYTHON_CLIENT_ALLOCATOR="platform"
+                    #export TF_FORCE_GPU_ALLOW_GROWTH="true"
+
+                    export XLA_PYTHON_CLIENT_PREALLOCATE=false
                     export XLA_PYTHON_CLIENT_ALLOCATOR="platform"
-                    export TF_FORCE_GPU_ALLOW_GROWTH="true"
+                    export OPENMM_DEFAULT_PLATFORM=CUDA
                     
                     echo "pdb_folder: $pdb_folder"                    
                                     
@@ -410,10 +412,11 @@ def collabfold_dag(dsl):
                       --num-recycle 30 --recycle-early-stop-tolerance 0.5 \\
                       --model-type auto \\
                       --data $collabfold_db \\
-                      $a3m \\
+                      "$__pipeline_instance_dir/output/t-search/${fold_name_in_fasta}.a3m" \\
                       $__task_output_dir
                         
-                    echo "check existence of *.pdb (some cuda failures are silent)
+                    # (some cuda failures are silent)
+                    echo "check existence of *.pdb"
                     ls $__task_output_dir/*.pdb
     
                     echo "running AF2multimer-analysis on $__task_output_dir"

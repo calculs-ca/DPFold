@@ -1,0 +1,11 @@
+{
+    "python.analysis.extraPaths": [
+        "./src",
+        "./DryPipe"
+    ],
+    "python.defaultInterpreterPath": "${workspaceFolder}/venv/bin/python",
+    "python.envFile": "${workspaceFolder}/.env",
+    "json.validate.enable": true,
+    "json.schemas": [],    
+    "files.associations": {"*.json": "jsonc"}    
+}
