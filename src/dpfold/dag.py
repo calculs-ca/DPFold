@@ -384,7 +384,7 @@ def collabfold_dag(dsl):
                     
                     a3m="$__pipeline_instance_dir/output/t-search/${fold_name_in_fasta}.a3m"
                                             
-                    # module purge
+                    # module purge                        
                     # module load StdEnv/2023 gcc cuda/12.2
     
                     export TF_FORCE_UNIFIED_MEMORY="1"
