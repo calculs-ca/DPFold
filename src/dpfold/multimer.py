@@ -212,7 +212,7 @@ def parse_multimer_list_from_samplesheet(samplesheet, single_multimer_name=None,
                     except IndexError:
                         raise Exception(f"to few columns in line {line_number}")
                     except ValueError:
-                        raise Exception(f"int(prot_rows[1]) is not an int, line {line_number}")
+                        raise Exception(f"int(prot_rows[1]) is not an int, line {line_number}, {prot_rows[1]}")
 
             m = Multimer(list(prots_in_row()), line_number)
 
