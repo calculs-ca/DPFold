@@ -1,4 +1,6 @@
+import os
 import os.path
+import shutil
 import traceback
 import zipfile
 from pathlib import Path
@@ -138,24 +140,42 @@ def generate_aggregate_report(__pipeline_instance_dir, interfaces_csv, summary_c
         "fake_home"
     ]
 
-    with zipfile.ZipFile(all_zip, "w", zipfile.ZIP_DEFLATED) as zipf:
-        fold_outfile = Path(__pipeline_instance_dir, "output").glob("cf-fold.*/*")
-        for fof in fold_outfile:
-            if fof.name.endswith(".done.txt") or fof.name in excluded_files:
-                print(f"will skip {fof}")
+    # this task normally runs as a plain process on a login node, where CPU time is
+    # capped by policy. deflate level 1 costs ~6x less CPU than the default level 6,
+    # for ~24% more bytes, and 16MB buffers keep us off zipfile's 8KB copy chunks,
+    # which are pathological on lustre.
+    buf_size = 16 * 1024 * 1024
+
+    def files_to_zip():
+        for fold_dir in os.scandir(zip_root):
+            if not fold_dir.name.startswith("cf-fold.") or not fold_dir.is_dir():
                 continue
+            for fof in os.scandir(fold_dir.path):
+                if fof.name.endswith(".done.txt") or fof.name in excluded_files:
+                    continue
+                # is_file() follows symlinks, so this also skips the broken ones
+                # that rsync sometimes downloads
+                if not fof.is_file():
+                    continue
+                yield f"{fold_dir.name}/{fof.name}", fof.path
 
-            if not fof.exists():
-            # rsync sometimes downloads symlinks
-                continue
+    os.nice(19)
 
-            zipf.write(fof, arcname=fof.relative_to(zip_root))
-            print(f"added {fof} to zip")
+    added = 0
 
+    with open(all_zip, "wb", buffering=buf_size) as zip_fd:
+        with zipfile.ZipFile(zip_fd, "w", zipfile.ZIP_DEFLATED, compresslevel=1) as zipf:
+            for arcname, fof in files_to_zip():
+                with open(fof, "rb", buffering=buf_size) as in_f:
+                    with zipf.open(arcname, "w") as out_f:
+                        shutil.copyfileobj(in_f, out_f, buf_size)
+                added += 1
 
-        zipf.write(interfaces_csv, arcname="interfaces.csv")
-        zipf.write(summary_csv, arcname="summary.csv")
-        zipf.write(contacts_csv, arcname="contacts.csv")
+            zipf.write(interfaces_csv, arcname="interfaces.csv")
+            zipf.write(summary_csv, arcname="summary.csv")
+            zipf.write(contacts_csv, arcname="contacts.csv")
+
+    print(f"added {added} files to {all_zip}")
 
 
 def mmseqs_create_index(dsl):
